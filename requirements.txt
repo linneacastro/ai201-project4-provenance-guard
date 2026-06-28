@@ -1,0 +1,17 @@
+# Provenance Guard — dependencies
+
+# API framework
+flask>=3.0.0
+
+# Rate limiting on the submission endpoint
+flask-limiter>=3.5.0
+
+# Detection Signal 1 — LLM-based classification (Groq).
+# Captures semantic & stylistic coherence holistically.
+groq==0.15.0
+
+# Detection Signal 2 — Stylometric heuristics (structural/statistical properties).
+# Needs NO external library: implemented in pure Python (standard library only).
+
+# Loads GROQ_API_KEY from .env at startup
+python-dotenv==1.0.1
