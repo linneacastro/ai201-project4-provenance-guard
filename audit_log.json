@@ -145,5 +145,199 @@
     },
     "status": "classified",
     "appeals": []
+  },
+  {
+    "content_id": "a7a4a2d0-c7a0-469f-93f5-8b1b16e44f7e",
+    "creator_id": "demo-ai",
+    "timestamp": "2026-07-01T04:56:05Z",
+    "text_snippet": "Our team is committed to delivering excellent results. Our team is focused on meeting every client need. Our team is dedicated to maintaining the highest standards. Our team is working hard to exceed ",
+    "attribution": "likely_ai",
+    "confidence": 0.87,
+    "label_variant": "high_confidence_ai",
+    "signals": {
+      "llm": {
+        "verdict": "ai",
+        "confidence": 0.9,
+        "reasoning": "The passage exhibits a repetitive and formulaic structure, with the phrase 'Our team is' repeated at the start of every sentence, which is a common trait of AI-generated content. The language used is also overly generic and lacks the nuance and variation typically found in human writing."
+      },
+      "stylometry": {
+        "score": 0.855,
+        "verdict": "ai",
+        "metrics": {
+          "word_count": 75,
+          "sentence_count": 9,
+          "sentence_length_cv": 0.0566,
+          "type_token_ratio": 0.6,
+          "clauses_per_sentence_cv": 0.0,
+          "punctuation_density": 0.12,
+          "subscores": {
+            "length_variation": 1.0,
+            "vocab_variety": 0.5,
+            "complexity": 1.0,
+            "punctuation": 0.5333
+          }
+        }
+      }
+    },
+    "scoring": {
+      "direction": "ai",
+      "adj_ai": 0.8729,
+      "llm_ai": 0.95,
+      "sty_ai": 0.855,
+      "raw_ai": 0.912,
+      "disagreement": 0.095,
+      "confidence_uncapped": 0.8729,
+      "confidence_ceiling": null,
+      "word_count": 75
+    },
+    "status": "classified",
+    "appeals": []
+  },
+  {
+    "content_id": "8e8ee139-0751-45da-b51d-1be6e9eee425",
+    "creator_id": "demo-short",
+    "timestamp": "2026-07-01T04:56:54Z",
+    "text_snippet": "Rain again today. I forgot my umbrella.",
+    "attribution": "uncertain",
+    "confidence": 0.58,
+    "label_variant": "uncertain",
+    "signals": {
+      "llm": {
+        "verdict": "human",
+        "confidence": 0.8,
+        "reasoning": "The passage is brief and contains a personal, relatable experience, which is typical of human writing. The simple, conversational tone also suggests a human author."
+      },
+      "stylometry": {
+        "score": 0.6571,
+        "verdict": "ai",
+        "metrics": {
+          "word_count": 7,
+          "sentence_count": 2,
+          "sentence_length_cv": 0.1429,
+          "type_token_ratio": 1.0,
+          "clauses_per_sentence_cv": 0.0,
+          "punctuation_density": 0.2857,
+          "subscores": {
+            "length_variation": 0.9143,
+            "vocab_variety": 0.0,
+            "complexity": 1.0,
+            "punctuation": 0.0
+          }
+        }
+      }
+    },
+    "scoring": {
+      "direction": "human",
+      "adj_ai": 0.4215,
+      "llm_ai": 0.1,
+      "sty_ai": 0.6571,
+      "raw_ai": 0.3228,
+      "disagreement": 0.5571,
+      "confidence_uncapped": 0.5785,
+      "confidence_ceiling": 0.65,
+      "word_count": 7
+    },
+    "status": "classified",
+    "appeals": []
+  },
+  {
+    "content_id": "5611369d-9742-430e-a552-4feed1ae28c2",
+    "creator_id": "demo-ai",
+    "timestamp": "2026-07-01T05:07:21Z",
+    "text_snippet": "Our team is committed to delivering excellent results. Our team is focused on meeting every client need. Our team is dedicated to maintaining the highest standards. Our team is working hard to exceed ",
+    "attribution": "likely_ai",
+    "confidence": 0.87,
+    "label_variant": "high_confidence_ai",
+    "signals": {
+      "llm": {
+        "verdict": "ai",
+        "confidence": 0.9,
+        "reasoning": "The passage exhibits a repetitive and formulaic structure, with the phrase 'Our team is' repeated at the start of every sentence, which is a common trait of AI-generated content. The language used is also overly generic and lacks the nuance and variation typically found in human writing."
+      },
+      "stylometry": {
+        "score": 0.855,
+        "verdict": "ai",
+        "metrics": {
+          "word_count": 75,
+          "sentence_count": 9,
+          "sentence_length_cv": 0.0566,
+          "type_token_ratio": 0.6,
+          "clauses_per_sentence_cv": 0.0,
+          "punctuation_density": 0.12,
+          "subscores": {
+            "length_variation": 1.0,
+            "vocab_variety": 0.5,
+            "complexity": 1.0,
+            "punctuation": 0.5333
+          }
+        }
+      }
+    },
+    "scoring": {
+      "direction": "ai",
+      "adj_ai": 0.8729,
+      "llm_ai": 0.95,
+      "sty_ai": 0.855,
+      "raw_ai": 0.912,
+      "disagreement": 0.095,
+      "confidence_uncapped": 0.8729,
+      "confidence_ceiling": null,
+      "word_count": 75
+    },
+    "status": "under_review",
+    "appeals": [
+      {
+        "appeal_id": "c901a121-e04d-4ed8-becf-8981e9e394e7",
+        "reason": "I wrote this myself. English is my second language, so my writing can read as more formal than usual.",
+        "timestamp": "2026-07-01T05:08:56Z"
+      }
+    ]
+  },
+  {
+    "content_id": "f0d74a3c-b7e9-4b6a-9e4f-c6e8be7ac206",
+    "creator_id": "demo-short",
+    "timestamp": "2026-07-01T05:08:15Z",
+    "text_snippet": "Rain again today. I forgot my umbrella.",
+    "attribution": "uncertain",
+    "confidence": 0.58,
+    "label_variant": "uncertain",
+    "signals": {
+      "llm": {
+        "verdict": "human",
+        "confidence": 0.8,
+        "reasoning": "The passage is brief and contains a personal, relatable experience, which is typical of human writing. The simple, conversational tone also suggests a human author."
+      },
+      "stylometry": {
+        "score": 0.6571,
+        "verdict": "ai",
+        "metrics": {
+          "word_count": 7,
+          "sentence_count": 2,
+          "sentence_length_cv": 0.1429,
+          "type_token_ratio": 1.0,
+          "clauses_per_sentence_cv": 0.0,
+          "punctuation_density": 0.2857,
+          "subscores": {
+            "length_variation": 0.9143,
+            "vocab_variety": 0.0,
+            "complexity": 1.0,
+            "punctuation": 0.0
+          }
+        }
+      }
+    },
+    "scoring": {
+      "direction": "human",
+      "adj_ai": 0.4215,
+      "llm_ai": 0.1,
+      "sty_ai": 0.6571,
+      "raw_ai": 0.3228,
+      "disagreement": 0.5571,
+      "confidence_uncapped": 0.5785,
+      "confidence_ceiling": 0.65,
+      "word_count": 7
+    },
+    "status": "classified",
+    "appeals": []
   }
 ]
