@@ -1,10 +1,11 @@
 """Provenance Guard: Flask app.
 
-Milestone 3: the submission endpoint (POST /submit) and a health check
-(GET /health). /submit validates the input, runs the first detection signal
-(Groq), and returns a result with a content_id. The confidence score and the
-label are placeholders until the scorer (M4) and the label logic (M5) are
-built. The first signal lives in signals/llm.py.
+The submission endpoint (POST /submit), a health check (GET /health), and the
+audit log view (GET /log). /submit validates the input, runs both detection
+signals (Groq in signals/llm.py, stylometry in signals/stylometry.py), combines
+them with the confidence scorer (scoring.py) into one attribution + confidence,
+saves a full audit record, and returns the result with a content_id. The
+transparency label is still a placeholder until the label logic (M5).
 """
 
 import os
@@ -15,7 +16,9 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 
 import audit_log
+from scoring import combine_signals
 from signals.llm import classify_with_llm
+from signals.stylometry import classify_with_stylometry
 
 # Load GROQ_API_KEY (and anything else) from .env into the environment.
 load_dotenv()
@@ -37,11 +40,11 @@ def _utc_now():
 def submit():
     """Submit text for attribution analysis.
 
-    Milestone 3: validates the input, runs the first detection signal (Groq),
-    and returns a result. The confidence score and the label are placeholders
-    until the scorer (M4) and the label logic (M5) are built. Every response
-    carries a content_id, which the audit log stores and the appeal endpoint
-    looks up.
+    Validates the input, runs both detection signals, combines them into one
+    attribution and confidence (0 to 1), saves a full audit record, and returns
+    the result. The transparency label is still a placeholder until M5. Every
+    response carries a content_id, which the audit log stores and the appeal
+    endpoint looks up.
     """
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -72,8 +75,8 @@ def submit():
             "error": "Field 'creator_id' must be a string when provided."
         }), 400
 
-    # Run the first detection signal (Groq). One signal for now; the second
-    # signal and the real confidence scorer arrive in M4.
+    # Run both detection signals. Signal 1 (Groq) can fail; Signal 2 is pure
+    # local math and always returns.
     try:
         llm = classify_with_llm(text)
     except Exception as exc:  # Groq down, a timeout, or a bad reply
@@ -82,31 +85,58 @@ def submit():
             "detail": str(exc),
         }), 502
 
-    # Placeholder mapping from signal 1's verdict to an attribution. The real
-    # attribution (including the "uncertain" band) is decided by the M4 scorer.
-    attribution = "likely_ai" if llm["verdict"] == "ai" else "likely_human"
+    stylometry = classify_with_stylometry(text)
+    word_count = stylometry["metrics"].get("word_count", 0)
+
+    # Combine both signals into one attribution + confidence (the M4 scorer).
+    scored = combine_signals(llm, stylometry, word_count)
+    attribution = scored["attribution"]
+    confidence = scored["confidence"]
 
     content_id = str(uuid.uuid4())
     timestamp = _utc_now()
 
-    # Write a structured audit entry for this decision before responding.
-    # Milestone 4 extends each entry with the second signal and combined score.
+    # Audit entry: both signals in full, plus the combined result and the
+    # scoring internals. The label variant is still a placeholder (M5).
     audit_log.append_entry({
         "content_id": content_id,
         "creator_id": creator_id,
         "timestamp": timestamp,
+        "text_snippet": text[:200],
         "attribution": attribution,
-        "confidence": llm["confidence"],   # placeholder until the M4 scorer
-        "llm_score": llm["confidence"],    # signal 1's score
+        "confidence": confidence,
+        "signals": {
+            "llm": {
+                "verdict": llm["verdict"],
+                "confidence": llm["confidence"],
+                "reasoning": llm["reasoning"],
+            },
+            "stylometry": {
+                "score": stylometry["score"],
+                "verdict": stylometry["verdict"],
+                "metrics": stylometry["metrics"],
+            },
+        },
+        "scoring": {
+            "direction": scored["direction"],
+            "adj_ai": scored["adj_ai"],
+            **scored["details"],
+        },
         "status": "classified",
     })
 
     return jsonify({
         "content_id": content_id,
-        "attribution": attribution,        # from signal 1 only (placeholder)
-        "confidence": llm["confidence"],   # placeholder: signal 1's own confidence
+        "attribution": attribution,
+        "confidence": confidence,
         "label": "Placeholder label. Final transparency wording comes in M5.",
-        "signals": {"llm": llm},
+        "signals": {
+            "llm": {"verdict": llm["verdict"], "confidence": llm["confidence"]},
+            "stylometry": {
+                "verdict": stylometry["verdict"],
+                "score": stylometry["score"],
+            },
+        },
         "creator_id": creator_id,
         "status": "classified",
         "timestamp": timestamp,

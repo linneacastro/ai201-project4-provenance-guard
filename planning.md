@@ -353,18 +353,30 @@ stylometry gives a *0 to 1 score* already. Step 1 below lines them up.
 Stylometry measures four things, maps each to a 0 to 1 "AI-likeness" using a reference range,
 then takes a weighted average. Higher = more AI-like (more even and uniform).
 
-| Measurement | What a high AI-likeness looks like | Weight | Rough reference range |
-|-------------|-----------------------------------|:------:|-----------------------|
-| Sentence-length variation (coefficient of variation) | Sentences all about the same length | 0.40 | CV >= 0.6 -> human (0.0); CV <= 0.1 -> AI (1.0) |
-| Vocabulary variety (type-token ratio) | Words repeat, little range | 0.25 | TTR >= 0.65 -> human (0.0); TTR <= 0.35 -> AI (1.0) |
-| Sentence complexity (avg words/clauses per sentence) | Steady, medium-length sentences | 0.20 | very even -> AI; lumpy -> human |
-| Punctuation density | Plain, uniform punctuation | 0.15 | weakest tell, down-weighted on purpose |
+| Measurement | What a high AI-likeness looks like | Weight | Reference range |
+|-------------|-----------------------------------|:------:|-----------------|
+| Sentence-length variation (coefficient of variation) | Sentences all about the same length | 0.50 | CV >= 0.6 -> human (0.0); CV <= 0.1 -> AI (1.0) |
+| Vocabulary variety (type-token ratio) | Words repeat, little range | 0.15 | TTR >= 0.75 -> human (0.0); TTR <= 0.45 -> AI (1.0) |
+| Sentence complexity (CV of clauses per sentence) | Even clause structure across sentences | 0.20 | CV >= 0.75 -> human (0.0); CV <= 0.15 -> AI (1.0) |
+| Punctuation density (marks per word) | Plain, sparse punctuation | 0.15 | >= 0.20/word -> human (0.0); <= 0.05/word -> AI (1.0) |
 
 Sentence-length variation carries the most weight because it is the most reliable
 human-vs-AI tell. Punctuation carries the least because it is the easiest to read wrong.
 **These cutoffs are heuristics, not ground truth.** They are tuned guesses, and the
 "Detection Signals" blind spots already warn they can be wrong on poetry, lists, and very
 short text.
+
+**Calibration note (Milestone 4).** Testing the built pipeline on real text at realistic
+lengths (40 to 90 words) exposed a problem: the type-token ratio scored 0.0 (fully human)
+on every sample, including clearly AI ones, so it never contributed AI evidence and capped
+the stylometry score at 0.75. Two reasons: raw TTR runs high on short text (few words get a
+chance to repeat), and modern AI often uses varied vocabulary, so a rich TTR is a weak
+"human" signal. Two fixes, both above: its weight dropped from 0.25 to 0.15, and its
+"human" band moved up (TTR >= 0.75 now, was 0.65) so it still fires when text is genuinely
+repetitive. The freed 0.10 went to sentence-length variation (0.40 -> 0.50), the most
+reliable tell. Complexity and punctuation now list the concrete cutoffs the code uses. Every
+false-positive guard (the 0.80 AI bar, the disagreement pull, the short-text cap) is
+unchanged.
 
 ### The combine steps
 
