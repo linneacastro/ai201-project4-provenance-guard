@@ -8,6 +8,8 @@ readers, and handle appeals from creators who believe they've been misclassified
 > end to end: submission, multi-signal detection, confidence scoring, transparency labels,
 > appeals, rate limiting, and a structured audit log.
 
+> **🎥 Demo:** [Watch the walkthrough](https://cap.link/d62btt37pj8r5ta)
+
 ---
 
 ## Table of Contents
