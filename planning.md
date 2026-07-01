@@ -127,10 +127,10 @@ labeled with what passes between components.
 
 ```
    Platform (creator)
-     │  POST /appeal   { content_id, reason }
+     │  POST /appeal   { content_id, creator_reasoning }
      ▼
    /appeal route ──[missing fields]──▶ 400 Bad Request ──▶ Platform
-     │  content_id + reason
+     │  content_id + creator_reasoning
      ▼
    Audit Log lookup ──[id not found]──▶ 404 Not Found ──▶ Platform
      │  find original decision by content_id
@@ -178,9 +178,9 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    P["Platform (creator)"] -->|"POST /appeal { content_id, reason }"| A["/appeal route"]
+    P["Platform (creator)"] -->|"POST /appeal { content_id, creator_reasoning }"| A["/appeal route"]
     A -->|"missing fields"| E400["400 Bad Request"]
-    A -->|"content_id + reason"| L["Audit Log lookup (find decision by id)"]
+    A -->|"content_id + creator_reasoning"| L["Audit Log lookup (find decision by id)"]
     L -->|"id not found"| E404["404 Not Found"]
     L -->|"found decision"| SU["Status Update (set status = under_review)"]
     SU -->|"attach appeal to record"| AL[("Audit Log (append appeal entry)")]
@@ -560,7 +560,7 @@ platform's job.
 
 Two things, both required:
 - `content_id`: which decision they are contesting (it came back with their label).
-- `reason`: their side, in their words ("I wrote this myself; here is my draft history").
+- `creator_reasoning`: their side, in their words ("I wrote this myself; here is my draft history").
 
 The `appeals` list can hold more than one appeal, so a creator can come back and add more
 (for example, extra evidence) without losing the first.
@@ -571,7 +571,8 @@ The `appeals` list can hold more than one appeal, so a creator can come back and
    changes.
 2. **Mint an `appeal_id`** and **append an appeal entry** to that decision's own `appeals`
    list, right next to the original record, not somewhere separate. The entry holds
-   `appeal_id`, `reason`, `timestamp` (and `creator_id` if we have it).
+   `appeal_id`, `reason` (the `creator_reasoning` text from the request), `timestamp`
+   (and `creator_id` if we have it).
 3. **Flip the decision's `status` to `under_review`.**
 4. **Signal the platform to step the label back:** while a piece is `under_review`, the
    platform can show "under review" instead of the AI label, so the creator is not branded
@@ -680,11 +681,11 @@ A creator contests a decision.
 ```json
 {
   "content_id": "a1b2c3",
-  "reason": "I wrote this myself. Here is my draft history."
+  "creator_reasoning": "I wrote this myself. Here is my draft history."
 }
 ```
 - `content_id`: **required.** Which decision they are contesting.
-- `reason`: **required.** Their reasoning.
+- `creator_reasoning`: **required.** Their reasoning. Stored in the log as `reason`.
 
 **Returns** (`200 OK`):
 ```json
@@ -700,7 +701,7 @@ A creator contests a decision.
   flips status to `under_review`.
 
 **Errors:**
-- `400`: `content_id` or `reason` missing.
+- `400`: `content_id` or `creator_reasoning` missing.
 - `404`: no decision found with that ID.
 
 ### `GET /log`
@@ -780,7 +781,7 @@ IP address.
 
 | Endpoint | Limit | Why |
 |----------|-------|-----|
-| `/submit` | **5 per minute** and **100 per day**, per client | A real creator posts occasionally, not in bursts, 5/min covers someone actively revising and resubmitting, while a script trying to flood the endpoint hits the wall fast. 100/day caps sustained abuse and keeps one client from quietly draining our Groq free-tier quota; it also stays well under Groq's own daily limit, so one heavy user cannot take the service down for everyone. |
+| `/submit` | **10 per minute** and **100 per day**, per client | A real creator posts occasionally, not in bursts, 10/min leaves comfortable room for someone actively revising and resubmitting, while a script trying to flood the endpoint hits the wall fast. 100/day caps sustained abuse and keeps one client from quietly draining our Groq free-tier quota; it also stays well under Groq's own daily limit, so one heavy user cannot take the service down for everyone. |
 | `/appeal`, `/log`, `/health` | looser default (**30 per minute**) | Cheap, no model call, they only need basic flood protection, not a tight budget. |
 
 Over the limit, the caller gets a `429 Too Many Requests` (shown in the architecture diagram

@@ -52,3 +52,40 @@ def read_all():
     """Return all entries in the order they were written (oldest first)."""
     with _lock:
         return _read_all()
+
+
+def add_appeal(content_id, appeal):
+    """Attach an appeal to an existing decision.
+
+    Finds the decision by content_id, appends the appeal to its "appeals" list
+    (creating the list if this is the first appeal), and flips its status to
+    "under_review". The whole read-modify-write runs under the lock so a
+    concurrent submit or appeal can't clobber it.
+
+    Returns the updated entry, or None if no decision has that content_id (the
+    caller turns None into a 404).
+    """
+    with _lock:
+        entries = _read_all()
+        for entry in entries:
+            if entry.get("content_id") == content_id:
+                entry.setdefault("appeals", []).append(appeal)
+                entry["status"] = "under_review"
+                _write_all(entries)
+                return entry
+        return None
+
+
+def is_healthy():
+    """True if the log store is reachable: readable now and writable going on.
+
+    Used by GET /health. Reads the file (a missing or empty file is fine, it
+    means no entries yet) and confirms the directory it lives in is writable, so
+    the next append will succeed. Any parse or access error means unhealthy.
+    """
+    try:
+        with _lock:
+            _read_all()
+    except Exception:
+        return False
+    return os.access(os.path.dirname(LOG_PATH), os.W_OK)
