@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Provenance Guard: Demo Walkthrough Script</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --card: #ffffff;
+    --ink: #23201b;
+    --muted: #6b6459;
+    --accent: #3d5a80;
+    --accent-soft: #e6ecf3;
+    --say: #2b2b2b;
+    --say-soft: #eeece7;
+    --line: #e5e0d7;
+    --code-bg: #201d18;
+    --code-ink: #f3ede2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+  header .time { color: var(--muted); font-size: 13px; }
+  header .controls { margin-left: auto; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  header label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  header input {
+    font: inherit;
+    font-size: 13px;
+    padding: 5px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header input#base { width: 190px; }
+  header input#contentId { width: 230px; }
+  main { max-width: 820px; margin: 0 auto; padding: 26px 20px 80px; }
+  .intro { color: var(--muted); font-size: 15px; margin-bottom: 26px; }
+  .intro strong { color: var(--ink); }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  .panel h2 { margin: 0 0 10px; font-size: 15px; }
+  .checklist { list-style: none; margin: 0; padding: 0; }
+  .checklist li { display: flex; align-items: flex-start; gap: 9px; padding: 4px 0; font-size: 14px; }
+  .checklist input { margin-top: 3px; }
+
+  .scene {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px;
+    padding: 18px 20px 20px;
+    margin-bottom: 18px;
+  }
+  .scene-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .scene-num {
+    font-size: 12px; font-weight: 700; color: #fff; background: var(--accent);
+    border-radius: 20px; padding: 2px 10px; white-space: nowrap;
+  }
+  .scene h2 { margin: 0; font-size: 17px; letter-spacing: -0.01em; }
+  .scene .est { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+  .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 16px 0 6px; font-weight: 700; }
+
+  .say {
+    background: var(--say-soft);
+    border-radius: 8px;
+    padding: 11px 14px;
+    color: var(--say);
+    font-size: 15px;
+  }
+
+  .see { font-size: 14px; color: var(--muted); margin-top: 6px; }
+  .see strong { color: var(--ink); }
+
+  .cmd-wrap { position: relative; }
+  pre {
+    margin: 0;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 13px 15px;
+    border-radius: 8px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .copy {
+    position: absolute; top: 8px; right: 8px;
+    font: inherit; font-size: 11px; font-weight: 600;
+    background: #3a352d; color: #f3ede2;
+    border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer;
+  }
+  .copy:hover { background: var(--accent); }
+
+  .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .note strong { color: var(--ink); }
+
+  .cheat { background: var(--accent-soft); border: 1px solid #d3ddea; }
+  .cheat h2 { color: var(--accent); }
+  .cheat ul { margin: 0; padding-left: 18px; }
+  .cheat li { font-size: 14px; margin-bottom: 7px; }
+  .cheat b { color: var(--ink); }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 30px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Provenance Guard: Demo Script</h1>
+  <span class="time">target: about 2 minutes</span>
+  <div class="controls">
+    <label>Base URL <input id="base" value="http://localhost:5000"></label>
+    <label>Content ID <input id="contentId" placeholder="paste from Scene 2"></label>
+  </div>
+</header>
+
+<main>
+  <p class="intro">
+    Read this while you record your screen. You are showing the program we built, running in
+    your terminal. Each scene has three parts: <strong>Do</strong> (run the command),
+    <strong>Say</strong> (read the line), and <strong>See</strong> (what should appear). If a
+    live result lands in a slightly different band, say so out loud. The system is built to
+    show uncertainty.
+  </p>
+
+  <div class="panel">
+    <h2>Before you record</h2>
+    <ul class="checklist">
+      <li><label><input type="checkbox"> Server is running (<code>flask run</code>, or <code>flask run --port 5001</code> if port 5000 is taken). If you use 5001, change the Base URL box above.</label></li>
+      <li><label><input type="checkbox"> <code>GROQ_API_KEY</code> is set, so the LLM signal works.</label></li>
+      <li><label><input type="checkbox"> Terminal font is large enough to read on video.</label></li>
+      <li><label><input type="checkbox"> Terminal is visible on screen. Keep your editor with README.md open too, in case you want to point at it.</label></li>
+      <li><label><input type="checkbox"> You ran the commands once already, so you know they respond.</label></li>
+    </ul>
+  </div>
+
+  <!-- SCENE 1 -->
+  <div class="scene">
+    <div class="scene-head">
+      <span class="scene-num">1</span>
+      <h2>What it is</h2>
+      <span class="est">~20 sec</span>
+    </div>
+    <div class="lbl">Say</div>
+    <div class="say">This is Provenance Guard, a backend I built. A platform sends it text. It returns whether the text reads as human or AI, a confidence score, and a label to show readers. Creators can appeal a result, and every decision is logged. I will show it running.</div>
+    <div class="lbl">Do (check the service is up)</div>
+    <div class="cmd-wrap"><button class="copy" data-target="cmd-health">Copy</button><pre><code class="cmd" id="cmd-health"></code></pre></div>
+    <div class="see"><strong>See:</strong> <code>status: ok</code>, the audit log reachable, and the Groq key present.</div>
+  </div>
+
+  <!-- SCENE 2 -->
+  <div class="scene">
+    <div class="scene-head">
+      <span class="scene-num">2</span>
+      <h2>A high-confidence result</h2>
+      <span class="est">~30 sec</span>
+    </div>
+    <div class="lbl">Do (submit a repetitive paragraph)</div>
+    <div class="cmd-wrap"><button class="copy" data-target="cmd-submit-ai">Copy</button><pre><code class="cmd" id="cmd-submit-ai"></code></pre></div>
+    <div class="lbl">Say</div>
+    <div class="say">This comes back as likely AI, with confidence around 0.88. Two signals run on the text. One is a language model that judges meaning. The other is a set of stylometry measurements that judge structure, like how much the sentence lengths vary. Here both point the same way, so the confidence is high.</div>
+    <div class="see"><strong>See:</strong> <code>attribution: likely_ai</code>, confidence near <strong>0.88</strong>, and the AI label text. <strong>Copy the <code>content_id</code></strong> from the response and paste it into the Content ID box above. You need it in Scene 4.</div>
+  </div>
+
+  <!-- SCENE 3 -->
+  <div class="scene">
+    <div class="scene-head">
+      <span class="scene-num">3</span>
+      <h2>A low-confidence result</h2>
+      <span class="est">~30 sec</span>
+    </div>
+    <div class="lbl">Do (submit a short note)</div>
+    <div class="cmd-wrap"><button class="copy" data-target="cmd-submit-short">Copy</button><pre><code class="cmd" id="cmd-submit-short"></code></pre></div>
+    <div class="lbl">Say</div>
+    <div class="say">This comes back uncertain, around 0.58. It is only seven words, and the two signals disagree, so the score is low. Short text is never labeled AI, because calling a person's work AI is the worst mistake the system can make. The score changes with the evidence, so 0.88 and 0.58 give different labels.</div>
+    <div class="see"><strong>See:</strong> <code>attribution: uncertain</code>, confidence near <strong>0.58</strong>, and the uncertain label.</div>
+  </div>
+
+  <!-- SCENE 4 -->
+  <div class="scene">
+    <div class="scene-head">
+      <span class="scene-num">4</span>
+      <h2>An appeal</h2>
+      <span class="est">~30 sec</span>
+    </div>
+    <div class="lbl">Do (appeal the result from Scene 2)</div>
+    <div class="cmd-wrap"><button class="copy" data-target="cmd-appeal">Copy</button><pre><code class="cmd" id="cmd-appeal"></code></pre></div>
+    <div class="note">If you pasted the content_id above, it is already filled in below. If not, replace <code>PASTE_CONTENT_ID_HERE</code> by hand.</div>
+    <div class="lbl">Say</div>
+    <div class="say">A creator can appeal a result. They send the content ID and their reason. The status changes to under review. The system does not re-score it automatically. It records the appeal next to the original decision so a person can look at it.</div>
+    <div class="see"><strong>See:</strong> <code>status: under_review</code> and a confirmation message.</div>
+  </div>
+
+  <!-- SCENE 5 -->
+  <div class="scene">
+    <div class="scene-head">
+      <span class="scene-num">5</span>
+      <h2>The audit log</h2>
+      <span class="est">~25 sec</span>
+    </div>
+    <div class="lbl">Do (show the log)</div>
+    <div class="cmd-wrap"><button class="copy" data-target="cmd-log">Copy</button><pre><code class="cmd" id="cmd-log"></code></pre></div>
+    <div class="lbl">Say</div>
+    <div class="say">Every decision is stored in the audit log: the text, what each signal said, the score, the label, and any appeals. The paragraph I appealed now shows under review, with the reason attached to the same record.</div>
+    <div class="see"><strong>See:</strong> the entries, newest first. The appealed one has <code>status: under_review</code> with the appeal inside it.</div>
+    <div class="note">Optional: show only the review queue.</div>
+    <div class="cmd-wrap"><button class="copy" data-target="cmd-log-review">Copy</button><pre><code class="cmd" id="cmd-log-review"></code></pre></div>
+  </div>
+
+  <!-- SCENE 6 -->
+  <div class="scene">
+    <div class="scene-head">
+      <span class="scene-num">6</span>
+      <h2>Close</h2>
+      <span class="est">~15 sec</span>
+    </div>
+    <div class="lbl">Say</div>
+    <div class="say">That is the full flow: two signals, a confidence score, a plain label, an appeal path, and an audit log. The design decisions and the evidence are written up in the README.</div>
+    <div class="note">Optional rate-limit demo, only if you have time. It sends 12 quick submits. The first ten return 200, the last two return 429. Note that this makes real model calls, so it runs slowly.</div>
+    <div class="cmd-wrap"><button class="copy" data-target="cmd-ratelimit">Copy</button><pre><code class="cmd" id="cmd-ratelimit"></code></pre></div>
+    <div class="see"><strong>See:</strong> ten <code>200</code>s, then <code>429</code>, <code>429</code>.</div>
+  </div>
+
+  <div class="scene cheat">
+    <div class="scene-head">
+      <span class="scene-num">+</span>
+      <h2>Design points you can mention if there is time</h2>
+    </div>
+    <ul>
+      <li><b>Two signals.</b> One reads meaning (the language model), one reads structure (the measurements). They can disagree, and disagreement lowers the confidence.</li>
+      <li><b>A score, not yes or no.</b> AI detection is not reliable, so a score that shows uncertainty is more honest than a forced answer.</li>
+      <li><b>The AI side is stricter.</b> Calling a person's work AI is the worst mistake, so the AI cutoff is 0.80 and the human cutoff is 0.70. Short text is never labeled AI.</li>
+      <li><b>Appeals.</b> Some results will be wrong. An appeal lets the creator contest it, and the content is marked under review.</li>
+      <li><b>Audit log.</b> Every decision and appeal is recorded, so results can be checked later.</li>
+    </ul>
+  </div>
+
+  <footer>This is your script. Open it in a browser next to your terminal while you record.</footer>
+</main>
+
+<script>
+  const CMDS = {
+    "cmd-health": `curl -s {{BASE}}/health | python3 -m json.tool`,
+    "cmd-submit-ai": `curl -s -X POST {{BASE}}/submit -H "Content-Type: application/json" -d '{"text": "Our team is committed to delivering excellent results. Our team is focused on meeting every client need. Our team is dedicated to maintaining the highest standards. Our team is working hard to exceed expectations. Our team is proud to provide reliable service. Our team is always ready to support your goals. Our team is passionate about creating lasting value. Our team is determined to build strong partnerships. Our team is eager to help you succeed.", "creator_id": "demo-ai"}' | python3 -m json.tool`,
+    "cmd-submit-short": `curl -s -X POST {{BASE}}/submit -H "Content-Type: application/json" -d '{"text": "Rain again today. I forgot my umbrella.", "creator_id": "demo-short"}' | python3 -m json.tool`,
+    "cmd-appeal": `curl -s -X POST {{BASE}}/appeal -H "Content-Type: application/json" -d '{"content_id": "PASTE_CONTENT_ID_HERE", "creator_reasoning": "I wrote this myself. English is my second language, so my writing can read as more formal than usual."}' | python3 -m json.tool`,
+    "cmd-log": `curl -s {{BASE}}/log | python3 -m json.tool`,
+    "cmd-log-review": `curl -s "{{BASE}}/log?status=under_review" | python3 -m json.tool`,
+    "cmd-ratelimit": `for i in $(seq 1 12); do curl -s -o /dev/null -w "%{http_code}\\n" -X POST {{BASE}}/submit -H "Content-Type: application/json" -d '{"text": "Our team is committed to delivering excellent results. Our team is focused on meeting every client need. Our team is dedicated to maintaining the highest standards.", "creator_id": "ratelimit-test"}'; done`
+  };
+
+  const baseInput = document.getElementById("base");
+  const idInput = document.getElementById("contentId");
+
+  function currentBase() {
+    return (baseInput.value.trim() || "http://localhost:5000").replace(/\/+$/, "");
+  }
+
+  function render() {
+    const base = currentBase();
+    const id = idInput.value.trim();
+    for (const key of Object.keys(CMDS)) {
+      const el = document.getElementById(key);
+      if (!el) continue;
+      let text = CMDS[key].split("{{BASE}}").join(base);
+      if (id) text = text.split("PASTE_CONTENT_ID_HERE").join(id);
+      el.textContent = text;
+    }
+  }
+
+  baseInput.addEventListener("input", render);
+  idInput.addEventListener("input", render);
+
+  document.querySelectorAll(".copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const el = document.getElementById(btn.dataset.target);
+      const text = el.textContent;
+      const done = function () {
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = "Copy"; }, 1200);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { selectNode(el); });
+      } else {
+        selectNode(el);
+      }
+    });
+  });
+
+  function selectNode(el) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  render();
+</script>
+</body>
+</html>

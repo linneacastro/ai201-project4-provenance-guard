@@ -13,6 +13,7 @@ readers, and handle appeals from creators who believe they've been misclassified
 ## Table of Contents
 
 - [What It Does](#what-it-does)
+- [Architecture](#architecture)
 - [Quick Start](#quick-start)
 - [API Reference](#api-reference)
 - [Detection Pipeline (Multi-Signal)](#detection-pipeline-multi-signal)
@@ -21,6 +22,9 @@ readers, and handle appeals from creators who believe they've been misclassified
 - [Appeals Workflow](#appeals-workflow)
 - [Rate Limiting](#rate-limiting)
 - [Audit Log](#audit-log)
+- [Known Limitations](#known-limitations)
+- [Spec Reflection](#spec-reflection)
+- [AI Usage](#ai-usage)
 - [Project Structure](#project-structure)
 
 ---
@@ -38,6 +42,36 @@ The goal is **not** to police creativity. It is to protect attribution, build tr
 give readers honest context about where writing came from. Because labeling a real person's
 work as AI is the most harmful mistake the system can make, it is built to stay cautious:
 when the evidence is weak or mixed, it says "unsure" instead of guessing.
+
+---
+
+## Architecture
+
+The path one submission takes, from the text arriving to a label going back:
+
+1. **Request arrives** at `POST /submit` with the text (and an optional `creator_id`).
+2. **Rate limiter checks first.** If this client has sent too many requests recently, it
+   stops here with `429`, before any real work happens.
+3. **Input validation.** The text must be a non-empty string and not too long, or it stops
+   with `400`. This saves a wasted model call.
+4. **Both signals run.** The text goes to Signal 1 (the Groq LLM, meaning) and Signal 2
+   (stylometry, structure). Each returns its own read, independently.
+5. **The confidence scorer combines them.** The two reads become one AI-leaning number,
+   pulled toward "unsure" when they disagree and capped on short text, then turned into an
+   attribution (`likely_ai`, `likely_human`, or `uncertain`) plus a confidence score.
+6. **The label generator picks the wording.** The attribution maps to one of three
+   plain-language transparency labels, the text a reader actually sees.
+7. **The audit log saves the record** under a new `content_id`: the text, both signals, the
+   score, the label, and an empty appeals list.
+8. **The response returns** the `content_id`, attribution, confidence, label text, and
+   signals to the platform.
+
+An appeal later uses that same `content_id` to find the decision in the audit log, attach the
+creator's reasoning, and flip the status to `under_review`. Both flows meet at the audit log,
+tied together by the `content_id`.
+
+The full architecture write-up, including ASCII and Mermaid diagrams of both flows, is in
+[planning.md](planning.md) under "Architecture."
 
 ---
 
@@ -170,12 +204,41 @@ and how it reads); Signal 2 is structural (the *statistics* of how it's written)
 disagree, and that disagreement is itself informative: it's what drives an honest
 "uncertain" verdict rather than a forced binary one.
 
-Each signal's blind spots are written out in full in [planning.md](planning.md) under
-"Detection Signals" and "Edge Cases and Known Weak Spots."
+**What each signal misses (its blind spots):**
+- **Signal 1 (the LLM)** can be confidently wrong. Polished, edited human writing can read
+  as "AI-smooth" and get flagged, which is the false positive we care about most. Lightly
+  edited AI text can slip past it. It is also not perfectly consistent: the same text can
+  draw a slightly different verdict on different runs.
+- **Signal 2 (stylometry)** only sees structure, never meaning, so varied nonsense still
+  looks "human" to it. It needs enough text to be stable, it is easy to game once you know
+  the rules, and it misreads genres with unusual stats (poetry, lists, recipes).
+
+The full blind-spot list for each signal is in [planning.md](planning.md) under "Detection
+Signals," and the specific content types they get wrong are in
+[Known Limitations](#known-limitations) below.
 
 **How the two combine into one verdict:** see Confidence Scoring, below. In short, both
 signals are put on one 0-to-1 AI-leaning scale, blended (the LLM weighted a bit heavier),
 pulled toward the middle when they disagree, and capped on short text.
+
+**Why two signals, not one (and not five).** A single detector is easy to fool and has no
+honest way to show its own doubt: it just returns a number. Two signals that measure
+different things (meaning vs. structure) can disagree, and that disagreement is the real
+uncertainty we want to surface instead of hide. We stopped at two because a third weak
+signal would add noise, not a new view. If we found a signal that measured something
+genuinely different (for example, token-level perplexity from a base model), we would add
+it and give it real weight.
+
+**What we'd change deploying this for real:**
+- **Calibrate stylometry on a labeled corpus.** The reference ranges (sentence-length
+  variation, vocabulary variety, and so on) are tuned guesses. With a real set of
+  known-human and known-AI writing, we would fit the cutoffs to data instead of picking
+  them by hand.
+- **Treat the LLM as non-deterministic.** The same text can get a slightly different
+  verdict on different runs. In production we would call it a few times and average, or at
+  least record the spread, so one unlucky call does not decide a creator's label.
+- **Plan for drift.** AI writing changes fast, so a cutoff that works today will rot. We
+  would track score distributions over time and re-tune on a schedule.
 
 ---
 
@@ -217,6 +280,13 @@ full method (how the two signals blend, how disagreement pulls the score to the 
 short-text caps, and worked examples) is in [planning.md](planning.md) under "Confidence
 Scoring."
 
+**Why this approach, and not a simple average.** A plain average of the two signals would
+hide the one thing we care about most: when the signals fight, an average still returns a
+confident-looking middle number. Our approach keeps a single AI-leaning number and pulls it
+toward 0.5 as the signals disagree, so a fight shows up as low confidence, not false
+certainty. The asymmetric bars (0.80 to call AI, 0.70 to call human) and the short-text caps
+all lean the same direction: away from calling a real person's work AI.
+
 **How we tested that the scores are meaningful:**
 - [tests/verify_scoring.py](tests/verify_scoring.py) runs the worked examples from planning.md
   as assertions: it confirms strong agreement produces a confident score, disagreement pulls
@@ -227,6 +297,52 @@ Scoring."
 - The live demo below lands three real submissions in three different bands: a short note at
   **0.58 (uncertain)**, a casual human review at **0.74 (likely_human)**, and a repetitive
   corporate paragraph at **0.88 (likely_ai)**. Different scores, different labels.
+
+### Two example submissions (real scores)
+
+Two real `/submit` results, lifted straight from testing, that land far apart on the
+confidence scale. Same system, same rules, very different scores: that gap is the variation
+the scoring is meant to produce, not a constant.
+
+**High-confidence case: 0.88 (likely AI).** A repetitive corporate paragraph.
+
+> "Our team is committed to delivering excellent results. Our team is focused on meeting
+> every client need. Our team is dedicated to maintaining the highest standards..."
+
+| Field | Value |
+|-------|-------|
+| Confidence | **0.88** |
+| Attribution | `likely_ai` -> High-confidence AI label |
+| LLM signal | `ai`, 0.90 sure ("repetitive and formulaic sentence structures") |
+| Stylometry signal | `ai`, score 0.87 (sentence lengths barely vary) |
+| Why so high | Both signals agree strongly, and at 92 words the text is long enough that no cap applies. Nothing pulls the score down. |
+
+**Lower-confidence case: 0.58 (uncertain).** A short personal note.
+
+> "Rain again today. I forgot my umbrella."
+
+| Field | Value |
+|-------|-------|
+| Confidence | **0.58** |
+| Attribution | `uncertain` -> Uncertain label |
+| LLM signal | `human`, 0.80 sure ("personal, relatable experience") |
+| Stylometry signal | `ai`, score 0.66 (too few words to trust the structure) |
+| Why so low | The two signals disagree (one says human, one says AI), which pulls the score toward the middle. And at just 7 words there is too little to go on, so the short-text cap would block any confident call anyway. |
+
+The gap between **0.88** and **0.58** is the whole point: a confident call needs agreeing
+signals and enough text, and when either is missing the score drops and the label changes
+from an accusation to an honest "not sure."
+
+**What we'd change deploying this for real:**
+- **Set the bars from a target error rate.** Today 0.80 and 0.70 are reasoned guesses. With
+  labeled data we would pick the AI bar to hold the false-positive rate (human work wrongly
+  called AI) under a chosen limit, since that is the mistake we most want to avoid.
+- **Return a range, not just a point.** A bare 0.58 hides how shaky it is. We would return a
+  confidence interval, or a "based on N model runs" note, so the platform can decide how far
+  to trust it.
+- **Feed appeals back in.** Every upheld or overturned appeal is a free labeled example. Over
+  time those are the cheapest, most relevant calibration data we have, so we would use them
+  to re-tune the bars.
 
 ---
 
@@ -402,6 +518,91 @@ records come back from `GET /log`.
   ]
 }
 ```
+
+---
+
+## Known Limitations
+
+Detecting AI writing is an unsolved problem, and this system gets some cases wrong. These
+are not vague "needs more data" gaps. Each one traces back to a specific property of one of
+our two signals, so we can point at exactly where it breaks. The full list is in
+[planning.md](planning.md) under "Edge Cases and Known Weak Spots." The three that matter
+most:
+
+**1. Plain, repetitive poems get read as AI.** This is the false positive we most want to
+avoid. Our stylometry signal treats even sentence lengths and low vocabulary variety as
+"AI-uniform," because its reference ranges are tuned for ordinary prose. A poem with a
+steady, repeating rhythm hits those same numbers on purpose, so stylometry pushes toward AI.
+If the LLM also reads the poem as "AI-smooth," both signals agree and the score climbs. The
+short-text cap saves most poems (nothing under 75 words can be called "likely AI"), but a
+long, repetitive poem could still be misjudged. That is a real residual risk, and it is
+exactly what the appeal path is for.
+
+**2. Non-native (ESL) English writing skews toward AI.** A fluent non-native writer often
+uses simpler vocabulary and more uniform sentence shapes. Stylometry reads that uniformity
+as AI, and the LLM can read unusual phrasing as "off" and lean AI too. So both signals can
+tip the same wrong way for the same group of real people. This is a fairness problem, not
+just an accuracy one, because it would hit one group harder than others. The cautious
+thresholds and the wide "uncertain" band keep most of these out of "likely AI," but we name
+it openly instead of pretending the system is fair to everyone.
+
+**3. Lists, recipes, and technical formats confuse the structure signal.** A recipe or a
+bulleted list has very short, very uniform "sentences," so stylometry sees almost no
+sentence-length variation and reads it as strongly AI. The reference ranges simply do not
+fit structured text. Here the two-signal design usually helps: the LLM recognizes "this is a
+recipe" and does not call it AI, the signals disagree, and our scoring turns that
+disagreement into "uncertain" instead of a false accusation.
+
+The pattern across all three: stylometry's cutoffs assume ordinary prose, so any genre that
+is uniform for an innocent reason can look AI to it. The defenses are the same each time: the
+short-text cap, the disagreement rule that pulls toward "uncertain," and the appeal path for
+when the automated call is still wrong.
+
+---
+
+## Spec Reflection
+
+**One way the spec helped.** The assignment made one point loudly: labeling a real person's
+writing as AI is the worst mistake this system can make. That single idea drove the core of
+the scoring. It is why the bar to call something "likely AI" (0.80 confidence) sits higher
+than the bar to call it "likely human" (0.70), why short text can never reach a confident
+"AI" call, and why two signals that disagree get pulled toward "uncertain" instead of forced
+into a guess. Left to my own devices, the natural thing to build is a symmetric detector that
+treats both mistakes as equal. The spec stopped me from doing that.
+
+**One way my build diverged from my plan.** My [planning.md](planning.md) gave the
+vocabulary-variety measure (type-token ratio) a weight of 0.25 in the stylometry score, with
+a "human" cutoff at 0.65. When I built it and tested on real text at realistic lengths (40 to
+90 words), that measure scored 0.0 on every sample, including clearly AI ones. Short text
+does not give words enough chances to repeat, so the ratio always looked "human" and never
+added AI evidence. So I diverged from my own plan: I dropped its weight to 0.15, moved its
+human cutoff up to 0.75 so it still fires on genuinely repetitive text, and shifted the freed
+weight to sentence-length variation, the most reliable tell. The plan was a reasonable guess;
+testing showed it was wrong, so the build won.
+
+---
+
+## AI Usage
+
+I used an AI coding tool throughout, but on a short leash: I handed it one spec section at a
+time, asked for one focused piece, and checked that piece on its own before wiring it in. Two
+specific instances where I changed what it produced:
+
+**1. Re-weighting the stylometry score.** I directed the AI to build the stylometry scorer to
+my plan: four measurements (sentence-length variation, vocabulary variety, sentence
+complexity, punctuation) blended into one 0-to-1 score with the weights I had written down. It
+produced exactly that, faithfully, including the vocabulary measure at weight 0.25. When I ran
+real samples through it, that measure scored 0.0 across the board and flattened the results. I
+overrode the numbers: I re-weighted the measurements (vocabulary 0.25 down to 0.15,
+sentence-length variation 0.40 up to 0.50) and moved a cutoff, based on my own testing rather
+than the AI's spec-faithful version. I kept its structure and changed its judgment.
+
+**2. Naming the submission endpoint.** I directed the AI to help draft the architecture and
+API surface in planning.md. Its early draft named the main endpoint `/analyze`. I revised it
+to `/submit`, to match the assignment's "submission endpoint" and because it reads plainer to
+a platform integrator: you submit a piece of writing, and the service does the analyzing. A
+small change, but I made it deliberately and renamed it everywhere so the code, the plan, and
+the docs all agree.
 
 ---
 
